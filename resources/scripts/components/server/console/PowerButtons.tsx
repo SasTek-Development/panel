@@ -11,22 +11,32 @@ interface PowerButtonProps {
 
 export default ({ className }: PowerButtonProps) => {
     const [open, setOpen] = useState(false);
+    const [confirmAction, setConfirmAction] = useState('');
+
+    const danger = ServerContext.useStoreState((state) => state.server.data?.description?.includes('-danger'));
     const status = ServerContext.useStoreState((state) => state.status.value);
     const instance = ServerContext.useStoreState((state) => state.socket.instance);
 
     const killable = status === 'stopping';
     const onButtonClick = (
-        action: PowerAction | 'kill-confirmed',
+        action: PowerAction | 'confirmed',
         e: React.MouseEvent<HTMLButtonElement, MouseEvent>
     ): void => {
         e.preventDefault();
         if (action === 'kill') {
+            setConfirmAction('kill');
+            return setOpen(true);
+        }
+
+        if (danger && (action === 'stop' || action === 'restart')) {
+            setConfirmAction(action);
             return setOpen(true);
         }
 
         if (instance) {
             setOpen(false);
-            instance.send('set state', action === 'kill-confirmed' ? 'kill' : action);
+            instance.send('set state', action === 'confirmed' ? confirmAction : action);
+            setConfirmAction('');
         }
     };
 
@@ -42,9 +52,9 @@ export default ({ className }: PowerButtonProps) => {
                 open={open}
                 hideCloseIcon
                 onClose={() => setOpen(false)}
-                title={'Forcibly Stop Process'}
+                title={'Are you sure you want to ' + confirmAction}
                 confirm={'Continue'}
-                onConfirmed={onButtonClick.bind(this, 'kill-confirmed')}
+                onConfirmed={onButtonClick.bind(this, 'confirmed')}
             >
                 Forcibly stopping a server can lead to data corruption.
             </Dialog.Confirm>
